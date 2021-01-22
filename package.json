@@ -1,0 +1,15 @@
+{
+  "name": "gfe",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "keywords": [],
+  "author": "zprjk",
+  "license": "ISC",
+  "dependencies": {
+    "fast-glob": "^3.2.5"
+  }
+}
