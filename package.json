@@ -10,6 +10,6 @@
   "author": "zprjk",
   "license": "ISC",
   "dependencies": {
-    "fast-glob": "^3.2.5"
+    "fast-glob": "^3.3.3"
   }
 }
