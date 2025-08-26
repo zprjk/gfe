@@ -2,15 +2,29 @@ const child = require('child_process');
 const fg = require('fast-glob');
 
 console.logn = (...args) => console.log(...args, '\n');
-const run = (cmd) => child.execSync(cmd, {stdio: 'inherit'});
-const rung = (cmd) => child.execSync(cmd, {stdio: 'pipe', encoding: 'utf-8'}).trim();
+const run = (cmd) => {
+  console.log('\n>', cmd);
+  return child.execSync(cmd, {stdio: 'inherit'});
+}
+const runReturn = (cmd) => {
+  console.log('\n>', cmd);
+  return child.execSync(cmd, {stdio: 'pipe', encoding: 'utf-8'}).trim();
+}
+const runSilent = (cmd) => {
+  try{
+    run(cmd);
+    return true;
+  } catch(e) {
+    // Do nothing
+    return false;
+  }
+}
 
-const MAIN_BRANCH = 'development';
 const globPattern = process.argv[2];
 const dirs = fg.sync(globPattern, {onlyDirectories: true});
 
 console.logn('Search pattern', globPattern);
-console.logn('Web repositories found:', dirs);
+console.logn('✅ Web repositories found:', dirs);
 
 if(dirs.length === 0 || globPattern === undefined) {
   console.log('❌ Please provide the base path to check all available repositories. ❌');
@@ -20,40 +34,50 @@ if(dirs.length === 0 || globPattern === undefined) {
 
 // Cycle through all repositories 
 for (const dir of dirs) {
-  console.log("#######################################################");
+  console.log("###############################################################################");
   console.log('♻️ ', dir);
-  console.logn("#######################################################");
+  console.logn("###############################################################################");
   process.chdir(dir);
 
   // Fetch all branches, tags & prune deleted origin branches.
   run('git fetch --all --tags --prune'); 
   // Cleanup unnecessary files and optimize the local repository - https://git-scm.com/docs/git-gc
-  run('git gc --auto'); 
+  run('git gc --auto');
 
-  // get current working branch
-  const branch = rung('git branch --show-current');
-  console.log(branch);
-  const isMainBranch = branch === MAIN_BRANCH;
+  // Stash any uncommitted changes if any.
+  run('git stash');
 
-  // 
-  if(isMainBranch === false) {
-    run('git stash');
-  }
+  // Assume default branch is 'development', if not try 'master' or 'main'.
+  let defaultBranch = 'development'
+  // Get current working branch
+  const workingBranch = runReturn('git branch --show-current');
+  // const isDefaultBranch = workingBranch === defaultBranch;
+  console.log("Default Branch:", defaultBranch);
+  console.log("Current Branch:", workingBranch);
 
-  // Checkout to local main branch & reset to latest origin changes.
-  run(`git checkout ${MAIN_BRANCH}`);
-  run(`git reset --hard origin/${MAIN_BRANCH}`);
-
-  // 
-  if(isMainBranch === false) {
-    run(`git checkout ${branch}`);
-    try {
-      run('git stash pop');
-    } catch {
-      // Do nothing.
+  // Checkout to local default branch & reset to latest origin changes.
+  if(runSilent(`git checkout ${defaultBranch}`) === false) {
+    defaultBranch = 'master'
+    if(runSilent(`git checkout ${defaultBranch}`) === false) {
+      defaultBranch = 'main'
+      if(runSilent(`git checkout ${defaultBranch}`) === false) {
+        console.log('');
+        console.logn(`❌ Could not checkout to default branches: development, master or main.`);
+        process.exit(1);
+      }
     }
   }
 
+  // Reset local default branch to latest origin changes.
+  run(`git reset --hard origin/${defaultBranch}`);
+  
+  // runSilent('source /usr/local/opt/nvm/nvm.sh && nvm use && npm i');
+  // runSilent('npm run build -- --no-zip');
+
+  // Go back to the original working branch & pop any stashed changes if any.
+  run(`git checkout ${workingBranch}`);
+  runSilent(`git reset --hard origin/${workingBranch}`);
+  runSilent('git stash pop');
   console.log('');
 }
 
